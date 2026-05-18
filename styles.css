@@ -1,0 +1,35 @@
+/* IndiaMART Lead Auto-Assigner - Content Script Styles */
+
+#lead-auto-assigner-status {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Highlight for leads being processed */
+.lead-auto-assigner-processing {
+    border: 2px solid #667eea !important;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5) !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Success highlight */
+.lead-auto-assigner-success {
+    border: 2px solid #4CAF50 !important;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5) !important;
+}
+
+/* Error highlight */
+.lead-auto-assigner-error {
+    border: 2px solid #f44336 !important;
+    box-shadow: 0 0 10px rgba(244, 67, 54, 0.5) !important;
+}
