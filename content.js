@@ -24,6 +24,7 @@
   let processedLeads = new Set(); // Track already processed lead IDs
   let retryCount = 0;
   let singleAssignee = null; // Specific member to assign all leads to (null = round-robin mode)
+  let scanIntervalId = null; // Interval ID for periodic lead polling
 
   // CSS Selectors for IndiaMART (Real site + Mock page)
   const SELECTORS = {
@@ -205,7 +206,43 @@
     }
   }
 
-  // Note: autoAssignLoop removed - using API monitoring instead for real IndiaMART
+  // ==================== INTERVAL-BASED LEAD POLLING ====================
+
+  // Fetch leads from getContactList API and process unassigned ones
+  async function pollForNewLeads() {
+    if (!isRunning) return;
+    try {
+      logger.log("Polling for new leads...");
+      const response = await originalFetch(
+        "https://seller.indiamart.com/messagecentre/getContactList",
+        { credentials: "include" },
+      );
+      if (!response.ok) {
+        logger.warn("Poll request failed:", response.status);
+        return;
+      }
+      const data = await response.json();
+      processLeadsFromAPI(data);
+    } catch (err) {
+      logger.error("Poll error:", err);
+    }
+  }
+
+  // Start interval polling
+  function startIntervalPolling() {
+    if (scanIntervalId) return; // already running
+    logger.log(`Starting interval polling every ${CONFIG.scanInterval}ms`);
+    scanIntervalId = setInterval(pollForNewLeads, CONFIG.scanInterval);
+  }
+
+  // Stop interval polling
+  function stopIntervalPolling() {
+    if (scanIntervalId) {
+      clearInterval(scanIntervalId);
+      scanIntervalId = null;
+      logger.log("Interval polling stopped");
+    }
+  }
 
   // Listen for messages from popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -217,12 +254,14 @@
         loadSettings().then(() => {
           logger.log("Auto-assigner started - monitoring API for new leads");
           // API monitoring (fetch interceptor) handles assignment automatically
+          startIntervalPolling();
         });
         sendResponse({ status: "started" });
         break;
 
       case "stop":
         isRunning = false;
+        stopIntervalPolling();
         logger.log("Auto-assigner stopped");
         sendResponse({ status: "stopped" });
         break;
@@ -274,6 +313,50 @@
 
   // ==================== REAL INDIAMART API MONITORING ====================
 
+  // Shared lead processing logic used by both fetch interceptor and interval polling
+  function processLeadsFromAPI(data) {
+    if (!data || !data.result) {
+      logger.warn("No result array in API");
+      return;
+    }
+
+    const leads = data.result;
+    logger.log(`Received ${leads.length} leads from API`);
+
+    leads.forEach((lead) => {
+      try {
+        const contactId = lead.im_contact_id;
+        const leadDate = lead.contacts_add_date;
+        const labelCount = parseInt(lead.label_count || "0");
+
+        // Only process today's leads
+        if (!isTodayLead(leadDate)) return;
+
+        // Skip already processed
+        if (processedLeads.has(contactId)) return;
+        processedLeads.add(contactId);
+
+        // Check if unassigned (labelCount === 0)
+        const isUnassigned = labelCount === 0;
+        logger.log(
+          `Lead: ${lead.contacts_name} | Labels: ${labelCount} | Unassigned: ${isUnassigned}`,
+        );
+
+        if (isUnassigned && isRunning) {
+          logger.log(`NEW UNASSIGNED LEAD FOUND: ${lead.contacts_name}`);
+          // Add to queue for processing
+          realIndiaMARTQueue.push({
+            contactId,
+            name: lead.contacts_name,
+          });
+          processRealIndiaMARTQueue();
+        }
+      } catch (err) {
+        logger.error("Lead processing error:", err);
+      }
+    });
+  }
+
   // Monitor fetch API for getContactList
   const originalFetch = window.fetch;
   window.fetch = async function (...args) {
@@ -283,54 +366,10 @@
       const url = args[0];
       if (typeof url === "string" && url.includes("getContactList")) {
         logger.log("Contact API detected");
-
         const cloned = response.clone();
         cloned
           .json()
-          .then((data) => {
-            if (!data || !data.result) {
-              logger.warn("No result array in API");
-              return;
-            }
-
-            const leads = data.result;
-            logger.log(`Received ${leads.length} leads from API`);
-
-            leads.forEach((lead) => {
-              try {
-                const contactId = lead.im_contact_id;
-                const leadDate = lead.contacts_add_date;
-                const labelCount = parseInt(lead.label_count || "0");
-
-                // Only process today's leads
-                if (!isTodayLead(leadDate)) return;
-
-                // Skip already processed
-                if (processedLeads.has(contactId)) return;
-                processedLeads.add(contactId);
-
-                // Check if unassigned (labelCount === 0)
-                const isUnassigned = labelCount === 0;
-                logger.log(
-                  `Lead: ${lead.contacts_name} | Labels: ${labelCount} | Unassigned: ${isUnassigned}`,
-                );
-
-                if (isUnassigned && isRunning) {
-                  logger.log(
-                    `NEW UNASSIGNED LEAD FOUND: ${lead.contacts_name}`,
-                  );
-                  // Add to queue for processing
-                  realIndiaMARTQueue.push({
-                    contactId,
-                    name: lead.contacts_name,
-                  });
-                  processRealIndiaMARTQueue();
-                }
-              } catch (err) {
-                logger.error("Lead processing error:", err);
-              }
-            });
-          })
+          .then((data) => processLeadsFromAPI(data))
           .catch((err) => {
             logger.error("JSON parse error:", err);
           });
