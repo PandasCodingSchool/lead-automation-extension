@@ -25,6 +25,8 @@
   let retryCount = 0;
   let singleAssignee = null; // Specific member to assign all leads to (null = round-robin mode)
   let scanIntervalId = null; // Interval ID for periodic lead polling
+  let capturedContactListUrl = null; // Real getContactList URL captured from fetch interceptor
+  let capturedContactListInit = null; // Real request init (headers, method, body) captured from fetch interceptor
 
   // CSS Selectors for IndiaMART (Real site + Mock page)
   const SELECTORS = {
@@ -211,11 +213,17 @@
   // Fetch leads from getContactList API and process unassigned ones
   async function pollForNewLeads() {
     if (!isRunning) return;
+    if (!capturedContactListUrl) {
+      logger.warn(
+        "Poll skipped: waiting for IndiaMART to make first getContactList call to capture URL",
+      );
+      return;
+    }
     try {
       logger.log("Polling for new leads...");
       const response = await originalFetch(
-        "https://seller.indiamart.com/messagecentre/getContactList",
-        { credentials: "include" },
+        capturedContactListUrl,
+        capturedContactListInit,
       );
       if (!response.ok) {
         logger.warn("Poll request failed:", response.status);
@@ -366,6 +374,14 @@
       const url = args[0];
       if (typeof url === "string" && url.includes("getContactList")) {
         logger.log("Contact API detected");
+        // Capture URL + init for interval polling reuse
+        if (!capturedContactListUrl) {
+          capturedContactListUrl = url;
+          capturedContactListInit = args[1]
+            ? { ...args[1], credentials: "include" }
+            : { credentials: "include" };
+          logger.log("Captured getContactList URL for polling:", url);
+        }
         const cloned = response.clone();
         cloned
           .json()
