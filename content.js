@@ -221,7 +221,7 @@
     }
     try {
       logger.log("Polling for new leads...");
-      const response = await originalFetch(
+      const response = await fetch(
         capturedContactListUrl,
         capturedContactListInit,
       );
@@ -384,37 +384,32 @@
     });
   }
 
-  // Monitor fetch API for getContactList
-  const originalFetch = window.fetch;
-  window.fetch = async function (...args) {
-    const response = await originalFetch.apply(this, args);
+  // Listen for getContactList data posted by the main-world interceptor (interceptor.js)
+  window.addEventListener("message", (event) => {
+    if (
+      event.source !== window ||
+      !event.data ||
+      event.data.source !== "LeadAutoAssignerInterceptor" ||
+      event.data.type !== "contactListData"
+    )
+      return;
 
-    try {
-      const url = args[0];
-      if (typeof url === "string" && url.includes("getContactList")) {
-        logger.log("Contact API detected");
-        // Capture URL + init for interval polling reuse
-        if (!capturedContactListUrl) {
-          capturedContactListUrl = url;
-          capturedContactListInit = args[1]
-            ? { ...args[1], credentials: "include" }
-            : { credentials: "include" };
-          logger.log("Captured getContactList URL for polling:", url);
-        }
-        const cloned = response.clone();
-        cloned
-          .json()
-          .then((data) => processLeadsFromAPI(data))
-          .catch((err) => {
-            logger.error("JSON parse error:", err);
-          });
-      }
-    } catch (err) {
-      logger.error("Fetch monitor error:", err);
+    logger.log("Contact API detected");
+
+    // Capture URL + init for interval polling reuse
+    if (!capturedContactListUrl) {
+      capturedContactListUrl = event.data.url;
+      capturedContactListInit = event.data.init
+        ? { ...event.data.init, credentials: "include" }
+        : { credentials: "include" };
+      logger.log(
+        "Captured getContactList URL for polling:",
+        capturedContactListUrl,
+      );
     }
 
-    return response;
-  };
+    processLeadsFromAPI(event.data.data);
+  });
 
   // Check if lead is from today
   function isTodayLead(dateString) {

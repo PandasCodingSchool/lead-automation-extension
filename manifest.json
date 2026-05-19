@@ -14,9 +14,18 @@
         "https://seller.indiamart.com/*",
         "https://*.indiamart.com/*"
       ],
+      "js": ["interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://seller.indiamart.com/*",
+        "https://*.indiamart.com/*"
+      ],
       "js": ["content.js"],
       "css": ["styles.css"],
-      "run_at": "document_start"
+      "run_at": "document_idle"
     }
   ],
   "action": {
