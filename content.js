@@ -248,24 +248,10 @@
   }
 
   // Try to discover getContactList URL from already-completed network requests
+  // NOTE: disabled - performance entries don't capture POST body/headers so the
+  // replayed request returns HTML. Only the fetch interceptor captures accurate init.
   function discoverContactListUrl() {
-    if (capturedContactListUrl) return; // already captured
-    try {
-      const entries = performance.getEntriesByType("resource");
-      const match = entries.find(
-        (e) => e.name && e.name.includes("getContactList"),
-      );
-      if (match) {
-        capturedContactListUrl = match.name;
-        capturedContactListInit = { credentials: "include" };
-        logger.log(
-          "Discovered getContactList URL from performance entries:",
-          capturedContactListUrl,
-        );
-      }
-    } catch (err) {
-      logger.warn("Could not read performance entries:", err);
-    }
+    // no-op: rely on fetch interceptor capture only
   }
 
   // Start interval polling
