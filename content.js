@@ -230,15 +230,38 @@
         return;
       }
       const data = await response.json();
+      logger.log("Poll successful");
       processLeadsFromAPI(data);
     } catch (err) {
       logger.error("Poll error:", err);
     }
   }
 
+  // Try to discover getContactList URL from already-completed network requests
+  function discoverContactListUrl() {
+    if (capturedContactListUrl) return; // already captured
+    try {
+      const entries = performance.getEntriesByType("resource");
+      const match = entries.find(
+        (e) => e.name && e.name.includes("getContactList"),
+      );
+      if (match) {
+        capturedContactListUrl = match.name;
+        capturedContactListInit = { credentials: "include" };
+        logger.log(
+          "Discovered getContactList URL from performance entries:",
+          capturedContactListUrl,
+        );
+      }
+    } catch (err) {
+      logger.warn("Could not read performance entries:", err);
+    }
+  }
+
   // Start interval polling
   function startIntervalPolling() {
     if (scanIntervalId) return; // already running
+    discoverContactListUrl(); // try to capture URL from past requests before first poll
     logger.log(`Starting interval polling every ${CONFIG.scanInterval}ms`);
     scanIntervalId = setInterval(pollForNewLeads, CONFIG.scanInterval);
   }
