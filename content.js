@@ -229,6 +229,16 @@
         logger.warn("Poll request failed:", response.status);
         return;
       }
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        logger.error(
+          `Poll returned non-JSON (${contentType}). URL used: ${capturedContactListUrl}. Response preview: ${text.substring(0, 100)}`,
+        );
+        capturedContactListUrl = null; // reset so interceptor can re-capture correct URL
+        capturedContactListInit = null;
+        return;
+      }
       const data = await response.json();
       logger.log("Poll successful");
       processLeadsFromAPI(data);
