@@ -571,8 +571,12 @@
 
     logger.log("Lead Auto-Assigner initialized");
 
-    // Add visual indicator
-    addStatusIndicator();
+    // Add visual indicator - wait for body if not ready yet (document_start)
+    if (document.body) {
+      addStatusIndicator();
+    } else {
+      document.addEventListener("DOMContentLoaded", addStatusIndicator);
+    }
   }
 
   // Add visual status indicator to page

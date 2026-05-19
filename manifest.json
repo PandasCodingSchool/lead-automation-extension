@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "IndiaMART Lead Auto-Assigner",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatically assign incoming leads to team members using round-robin logic",
   "permissions": ["storage", "activeTab", "scripting", "notifications"],
   "host_permissions": [
@@ -16,7 +16,7 @@
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ],
   "action": {
