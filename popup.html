@@ -176,10 +176,12 @@
         display: flex;
         gap: 8px;
         margin-top: 10px;
+        flex-wrap: nowrap;
       }
 
       .input {
-        flex: 1;
+        flex: 1 1 auto;
+        min-width: 0;
         padding: 10px;
         border: 1px solid #ddd;
         border-radius: 6px;
@@ -200,6 +202,8 @@
         cursor: pointer;
         font-size: 13px;
         font-weight: 600;
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
 
       .btn-add:hover {
