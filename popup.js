@@ -23,6 +23,7 @@
     clearMembersBtn: document.getElementById("clear-members-btn"),
     resetBtn: document.getElementById("reset-btn"),
     testSelectorsBtn: document.getElementById("test-selectors-btn"),
+    forceDetectBtn: document.getElementById("force-detect-btn"),
     logsContainer: document.getElementById("logs"),
     assignModeRadios: document.querySelectorAll('input[name="assign-mode"]'),
     singleAssigneeContainer: document.getElementById(
@@ -106,6 +107,9 @@
     // Test selectors
     elements.testSelectorsBtn.addEventListener("click", testSelectors);
 
+    // Force detect API
+    elements.forceDetectBtn.addEventListener("click", forceDetectAPI);
+
     // Assignment mode radio buttons
     elements.assignModeRadios.forEach((radio) => {
       radio.addEventListener("change", onAssignModeChange);
@@ -116,6 +120,33 @@
       "change",
       onSingleAssigneeChange,
     );
+  }
+
+  // Force detect API - reloads page to re-trigger detection
+  async function forceDetectAPI() {
+    addLog("Forcing API detection - reloading page...", "info");
+    try {
+      const tabs = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+
+      if (!tabs[0]) {
+        addLog("No active tab found", "error");
+        return;
+      }
+
+      if (!tabs[0].url.includes("indiamart.com")) {
+        addLog("Please navigate to seller.indiamart.com first", "error");
+        return;
+      }
+
+      await chrome.tabs.sendMessage(tabs[0].id, { action: "forceDetect" });
+      addLog("Page reloading to re-detect API...", "success");
+    } catch (error) {
+      addLog("Force detect failed: " + error.message, "error");
+      addLog("Try refreshing the page manually", "info");
+    }
   }
 
   // Toggle automation on/off

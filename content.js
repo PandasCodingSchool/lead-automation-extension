@@ -27,6 +27,8 @@
   let scanIntervalId = null; // Interval ID for periodic lead polling
   let capturedContactListUrl = null; // Real getContactList URL captured from fetch interceptor
   let capturedContactListInit = null; // Real request init (headers, method, body) captured from fetch interceptor
+  let pollSkipCount = 0; // Count of skipped polls due to missing URL
+  const MAX_POLL_SKIPS = 10; // Auto-reload after this many skips (~30 seconds)
 
   // CSS Selectors for IndiaMART (Real site + Mock page)
   const SELECTORS = {
@@ -214,11 +216,21 @@
   async function pollForNewLeads() {
     if (!isRunning) return;
     if (!capturedContactListUrl) {
+      pollSkipCount++;
       logger.warn(
-        "Poll skipped: waiting for IndiaMART to make first getContactList call to capture URL",
+        `Poll skipped (${pollSkipCount}/${MAX_POLL_SKIPS}): waiting for IndiaMART to make first getContactList call to capture URL`,
       );
+      // Auto-reload page if we keep missing the API call
+      if (pollSkipCount >= MAX_POLL_SKIPS) {
+        logger.error(
+          "API not detected after multiple attempts. Reloading page to retry detection...",
+        );
+        setTimeout(() => window.location.reload(), 2000);
+      }
       return;
     }
+    // Reset skip count once we have the URL
+    pollSkipCount = 0;
     try {
       logger.log("Polling for new leads...");
       const response = await fetch(
@@ -318,6 +330,22 @@
       case "testSelectors":
         const testResults = testSelectors();
         sendResponse({ results: testResults });
+        break;
+
+      case "reloadPage":
+        logger.log("Reloading page to re-detect API...");
+        setTimeout(() => window.location.reload(), 500);
+        sendResponse({ status: "reloading" });
+        break;
+
+      case "forceDetect":
+        // Manually trigger detection by resetting URL capture and reloading
+        capturedContactListUrl = null;
+        capturedContactListInit = null;
+        pollSkipCount = 0;
+        logger.log("Forcing API re-detection by reloading page...");
+        setTimeout(() => window.location.reload(), 500);
+        sendResponse({ status: "reloading" });
         break;
     }
 
