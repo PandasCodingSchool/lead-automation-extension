@@ -49,6 +49,10 @@
     realAssignItems: "li",
     realModalClose: "#tbro-header > div > div.cp",
 
+    // Suggested replies section
+    suggestedRepliesContainer: "#suggested_replies",
+    suggestedReplyItem: ".reply-template",
+
     // Note: All mock selectors removed - using real IndiaMART API monitoring only
   };
 
@@ -577,7 +581,10 @@
         );
       }
 
-      // Step 7: Close modal
+      // Step 7: Send suggested reply matching team member name
+      await sendSuggestedReply(teamMember);
+
+      // Step 8: Close modal
       closeRealModal();
       logger.log("Lead Assigned Successfully");
 
@@ -601,6 +608,65 @@
       }
     } catch (err) {
       logger.error("Close modal failed:", err);
+    }
+  }
+
+  // Send suggested reply matching team member name
+  async function sendSuggestedReply(teamMember) {
+    try {
+      const targetName = (teamMember.name || teamMember.email).toLowerCase().trim();
+      if (!targetName) {
+        logger.warn("No team member name to match for suggested reply");
+        return;
+      }
+
+      logger.log(`Looking for suggested reply matching: "${targetName}"`);
+
+      // Find suggested replies container
+      const container = document.querySelector(SELECTORS.suggestedRepliesContainer);
+      if (!container) {
+        logger.log("Suggested replies section not found - skipping");
+        return;
+      }
+
+      // Find all reply items
+      const replyItems = container.querySelectorAll(SELECTORS.suggestedReplyItem);
+      if (replyItems.length === 0) {
+        logger.log("No suggested reply templates found");
+        return;
+      }
+
+      logger.log(`Found ${replyItems.length} suggested replies`);
+
+      // Look for reply matching team member name (in title or text content)
+      let matchingReply = null;
+      for (const item of replyItems) {
+        const title = (item.getAttribute("title") || "").toLowerCase();
+        const text = (item.innerText || "").toLowerCase().trim();
+
+        logger.log(`Checking reply - text: "${text}", title includes name: ${title.includes(targetName)}`);
+
+        // Check if team member name appears in title or text
+        if (title.includes(targetName) || text.includes(targetName)) {
+          matchingReply = item;
+          logger.log(`Found matching suggested reply for ${teamMember.name || teamMember.email}`);
+          break;
+        }
+      }
+
+      if (!matchingReply) {
+        logger.warn(`No suggested reply found containing "${targetName}"`);
+        return;
+      }
+
+      // Click the matching suggested reply
+      logger.log("Clicking suggested reply to send...");
+      simulateClick(matchingReply);
+      await delay(1500);
+
+      logger.log("Suggested reply sent successfully");
+    } catch (err) {
+      logger.error("Failed to send suggested reply:", err);
     }
   }
 
