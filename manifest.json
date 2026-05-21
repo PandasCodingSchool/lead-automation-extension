@@ -43,5 +43,11 @@
   },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["interceptor.js"],
+      "matches": ["https://seller.indiamart.com/*", "https://*.indiamart.com/*"]
+    }
+  ]
 }

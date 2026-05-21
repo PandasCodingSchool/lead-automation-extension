@@ -4,17 +4,34 @@
 (function () {
   "use strict";
 
+  console.log("[LeadAutoAssigner][INTERCEPTOR] Script starting...");
+
   const originalFetch = window.fetch;
+  console.log(
+    "[LeadAutoAssigner][INTERCEPTOR] Original fetch captured:",
+    typeof originalFetch,
+  );
+
   window.fetch = async function (...args) {
+    const url =
+      typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
+    console.log(
+      "[LeadAutoAssigner][INTERCEPTOR] fetch() called:",
+      url.substring(0, 100),
+    );
+
     const response = await originalFetch.apply(this, args);
 
     try {
-      const url = typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
       if (url.includes("getContactList")) {
+        console.log("[LeadAutoAssigner][INTERCEPTOR] getContactList DETECTED!");
         const cloned = response.clone();
         cloned
           .json()
           .then((data) => {
+            console.log(
+              "[LeadAutoAssigner][INTERCEPTOR] Response parsed, posting message...",
+            );
             window.postMessage(
               {
                 source: "LeadAutoAssignerInterceptor",
@@ -25,13 +42,25 @@
               },
               "*",
             );
+            console.log(
+              "[LeadAutoAssigner][INTERCEPTOR] Message posted successfully",
+            );
           })
-          .catch(() => {});
+          .catch((err) => {
+            console.error(
+              "[LeadAutoAssigner][INTERCEPTOR] JSON parse error:",
+              err,
+            );
+          });
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("[LeadAutoAssigner][INTERCEPTOR] Error in interceptor:", e);
+    }
 
     return response;
   };
 
-  console.log("[LeadAutoAssigner] Fetch interceptor injected into main world");
+  console.log(
+    "[LeadAutoAssigner][INTERCEPTOR] Fetch interceptor ACTIVE - waiting for getContactList calls",
+  );
 })();

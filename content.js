@@ -413,16 +413,34 @@
   }
 
   // Listen for getContactList data posted by the main-world interceptor (interceptor.js)
+  console.log("[LeadAutoAssigner][CONTENT] Setting up message listener...");
   window.addEventListener("message", (event) => {
-    if (
-      event.source !== window ||
-      !event.data ||
-      event.data.source !== "LeadAutoAssignerInterceptor" ||
-      event.data.type !== "contactListData"
-    )
-      return;
+    console.log("[LeadAutoAssigner][CONTENT] Message received:", event.data);
 
-    logger.log("Contact API detected");
+    if (event.source !== window) {
+      console.log("[LeadAutoAssigner][CONTENT] Ignoring - wrong source");
+      return;
+    }
+    if (!event.data) {
+      console.log("[LeadAutoAssigner][CONTENT] Ignoring - no data");
+      return;
+    }
+    if (event.data.source !== "LeadAutoAssignerInterceptor") {
+      console.log(
+        "[LeadAutoAssigner][CONTENT] Ignoring - wrong source identifier:",
+        event.data.source,
+      );
+      return;
+    }
+    if (event.data.type !== "contactListData") {
+      console.log(
+        "[LeadAutoAssigner][CONTENT] Ignoring - wrong type:",
+        event.data.type,
+      );
+      return;
+    }
+
+    logger.log("Contact API detected via message from interceptor");
 
     // Capture URL + init for interval polling reuse
     if (!capturedContactListUrl) {
@@ -438,6 +456,7 @@
 
     processLeadsFromAPI(event.data.data);
   });
+  console.log("[LeadAutoAssigner][CONTENT] Message listener ACTIVE");
 
   // Check if lead is from today
   function isTodayLead(dateString) {
@@ -584,22 +603,55 @@
     }
   }
 
+  // ==================== DYNAMIC INTERCEPTOR INJECTION ====================
+
+  // Inject interceptor script directly into page as a fallback/reliable method
+  function injectInterceptorScript() {
+    console.log(
+      "[LeadAutoAssigner][CONTENT] Attempting to inject interceptor script...",
+    );
+    try {
+      const script = document.createElement("script");
+      script.src = chrome.runtime.getURL("interceptor.js");
+      script.onload = function () {
+        console.log(
+          "[LeadAutoAssigner][CONTENT] Interceptor script injected successfully",
+        );
+        this.remove();
+      };
+      script.onerror = function (err) {
+        console.error(
+          "[LeadAutoAssigner][CONTENT] Failed to inject interceptor:",
+          err,
+        );
+      };
+      (document.head || document.documentElement).appendChild(script);
+    } catch (err) {
+      console.error(
+        "[LeadAutoAssigner][CONTENT] Error injecting interceptor:",
+        err,
+      );
+    }
+  }
+
   // ==================== INITIALIZE ====================
 
   async function init() {
+    console.log("[LeadAutoAssigner][CONTENT] init() starting...");
     await loadSettings();
 
-    // autoAssignLoop is now a continuous loop that handles its own timing
-    // It will be started when user clicks "Start" and runs until stopped
+    console.log("[LeadAutoAssigner][CONTENT] Injecting interceptor script...");
+    injectInterceptorScript();
 
     logger.log("Lead Auto-Assigner initialized");
 
-    // Add visual indicator - wait for body if not ready yet (document_start)
+    // Add visual indicator - wait for body if not ready yet
     if (document.body) {
       addStatusIndicator();
     } else {
       document.addEventListener("DOMContentLoaded", addStatusIndicator);
     }
+    console.log("[LeadAutoAssigner][CONTENT] init() complete");
   }
 
   // Add visual status indicator to page
