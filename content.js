@@ -370,12 +370,13 @@
 
   // Shared lead processing logic used by both fetch interceptor and interval polling
   function processLeadsFromAPI(data) {
-    if (!data || !data.result) {
-      logger.warn("No result array in API");
+    // Support both old API (result) and new API (response)
+    const leads = data?.result || data?.response;
+    if (!data || !leads || !Array.isArray(leads)) {
+      logger.warn("No leads array in API response", data);
       return;
     }
 
-    const leads = data.result;
     logger.log(`Received ${leads.length} leads from API`);
 
     leads.forEach((lead) => {

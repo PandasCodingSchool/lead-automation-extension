@@ -23,8 +23,16 @@
     const response = await originalFetch.apply(this, args);
 
     try {
-      if (url.includes("getContactList")) {
-        console.log("[LeadAutoAssigner][INTERCEPTOR] getContactList DETECTED!");
+      // Support both old and new IndiaMART API endpoints
+      const isContactList =
+        url.includes("getContactList") || url.includes("getSortFilterLeads");
+      if (isContactList) {
+        console.log(
+          "[LeadAutoAssigner][INTERCEPTOR] Leads API DETECTED:",
+          url.includes("getSortFilterLeads")
+            ? "getSortFilterLeads"
+            : "getContactList",
+        );
         const cloned = response.clone();
         cloned
           .json()
