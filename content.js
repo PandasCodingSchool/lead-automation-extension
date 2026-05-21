@@ -53,6 +53,10 @@
     suggestedRepliesContainer: "#suggested_replies",
     suggestedReplyItem: ".reply-template",
 
+    // Message input box for sending reply
+    messageInputBox: "#massage-text",
+    messageInputContainer: "#editable_div",
+
     // Note: All mock selectors removed - using real IndiaMART API monitoring only
   };
 
@@ -612,25 +616,40 @@
   }
 
   // Send suggested reply matching team member name
+  // Only sends if lead is assigned to Yogesh (not if already assigned to someone else)
   async function sendSuggestedReply(teamMember) {
     try {
-      const targetName = (teamMember.name || teamMember.email).toLowerCase().trim();
+      const targetName = (teamMember.name || teamMember.email)
+        .toLowerCase()
+        .trim();
       if (!targetName) {
         logger.warn("No team member name to match for suggested reply");
+        return;
+      }
+
+      // Only send suggested reply for Yogesh-assigned leads
+      if (!targetName.includes("yogesh")) {
+        logger.log(
+          `Skipping suggested reply - lead assigned to ${teamMember.name || teamMember.email} (not Yogesh)`,
+        );
         return;
       }
 
       logger.log(`Looking for suggested reply matching: "${targetName}"`);
 
       // Find suggested replies container
-      const container = document.querySelector(SELECTORS.suggestedRepliesContainer);
+      const container = document.querySelector(
+        SELECTORS.suggestedRepliesContainer,
+      );
       if (!container) {
         logger.log("Suggested replies section not found - skipping");
         return;
       }
 
       // Find all reply items
-      const replyItems = container.querySelectorAll(SELECTORS.suggestedReplyItem);
+      const replyItems = container.querySelectorAll(
+        SELECTORS.suggestedReplyItem,
+      );
       if (replyItems.length === 0) {
         logger.log("No suggested reply templates found");
         return;
@@ -644,12 +663,16 @@
         const title = (item.getAttribute("title") || "").toLowerCase();
         const text = (item.innerText || "").toLowerCase().trim();
 
-        logger.log(`Checking reply - text: "${text}", title includes name: ${title.includes(targetName)}`);
+        logger.log(
+          `Checking reply - text: "${text}", title includes name: ${title.includes(targetName)}`,
+        );
 
         // Check if team member name appears in title or text
         if (title.includes(targetName) || text.includes(targetName)) {
           matchingReply = item;
-          logger.log(`Found matching suggested reply for ${teamMember.name || teamMember.email}`);
+          logger.log(
+            `Found matching suggested reply for ${teamMember.name || teamMember.email}`,
+          );
           break;
         }
       }
@@ -659,12 +682,65 @@
         return;
       }
 
-      // Click the matching suggested reply
-      logger.log("Clicking suggested reply to send...");
+      // Click the suggested reply to load it into message box
+      logger.log("Clicking suggested reply to load into message box...");
       simulateClick(matchingReply);
-      await delay(1500);
+      await delay(1000);
 
-      logger.log("Suggested reply sent successfully");
+      // Find message input and press Enter to send
+      const messageBox = document.querySelector(SELECTORS.messageInputBox);
+      if (!messageBox) {
+        logger.warn(
+          "Message input box not found after clicking suggested reply",
+        );
+        return;
+      }
+
+      // Check if message was actually loaded (has content)
+      const messageText = messageBox.innerText || messageBox.textContent || "";
+      if (!messageText.trim()) {
+        logger.warn("Message box is empty after clicking suggested reply");
+        return;
+      }
+
+      logger.log(
+        `Message loaded (${messageText.length} chars), pressing Enter to send...`,
+      );
+
+      // Press Enter to send the message
+      const enterEvent = new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      });
+      messageBox.dispatchEvent(enterEvent);
+
+      // Also try keypress and keyup for better compatibility
+      const keypressEvent = new KeyboardEvent("keypress", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      });
+      messageBox.dispatchEvent(keypressEvent);
+
+      const keyupEvent = new KeyboardEvent("keyup", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+        cancelable: true,
+      });
+      messageBox.dispatchEvent(keyupEvent);
+
+      await delay(1000);
+      logger.log("Suggested reply sent successfully (Enter key pressed)");
     } catch (err) {
       logger.error("Failed to send suggested reply:", err);
     }
